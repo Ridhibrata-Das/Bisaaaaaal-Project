@@ -2,12 +2,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Video, VideoOff } from "lucide-react";
 import { GeminiWebSocket } from '../services/geminiWebSocket';
-import { Base64 } from 'js-base64';
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface CameraPreviewProps {
   onTranscription: (text: string) => void;
@@ -203,7 +200,7 @@ export default function CameraPreview({ onTranscription }: CameraPreviewProps) {
           setAudioLevel(level);
 
           const pcmArray = new Uint8Array(pcmData);
-          const b64Data = Base64.fromUint8Array(pcmArray);
+          const b64Data = Buffer.from(pcmArray).toString('base64');
           sendAudioData(b64Data);
         };
 
@@ -218,7 +215,7 @@ export default function CameraPreview({ onTranscription }: CameraPreviewProps) {
           }
           setIsAudioSetup(false);
         };
-      } catch (error) {
+      } catch {
         if (isActive) {
           cleanupAudio();
           setIsAudioSetup(false);
@@ -239,7 +236,7 @@ export default function CameraPreview({ onTranscription }: CameraPreviewProps) {
         audioWorkletNodeRef.current = null;
       }
     };
-  }, [isStreaming, stream, isWebSocketReady, isModelSpeaking]);
+  }, [isStreaming, stream, isWebSocketReady, isModelSpeaking, cleanupAudio, isAudioSetup]);
 
   // Capture and send image
   const captureAndSendImage = () => {
