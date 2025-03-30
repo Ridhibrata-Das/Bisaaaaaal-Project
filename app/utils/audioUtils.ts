@@ -1,6 +1,4 @@
-// Comment out the unused function to avoid ESLint warnings
 // Helper function to download and analyze WAV data
-/* 
 function debugSaveWav(wavData: string, filename: string = 'debug.wav') {
   const byteString = atob(wavData);
   const bytes = new Uint8Array(byteString.length);
@@ -19,7 +17,6 @@ function debugSaveWav(wavData: string, filename: string = 'debug.wav') {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-*/
 
 export function pcmToWav(pcmData: string, sampleRate: number = 24000): Promise<string> {
   return new Promise((resolve, reject) => {
