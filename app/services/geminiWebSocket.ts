@@ -15,7 +15,6 @@ export class GeminiWebSocket {
   private onSetupCompleteCallback: (() => void) | null = null;
   private audioContext: AudioContext | null = null;
   
-  // Audio queue management
   private audioQueue: Float32Array[] = [];
   private isPlaying: boolean = false;
   private currentSource: AudioBufferSourceNode | null = null;
@@ -38,17 +37,12 @@ export class GeminiWebSocket {
     this.onPlayingStateChange = onPlayingStateChange;
     this.onAudioLevelChange = onAudioLevelChange;
     this.onTranscriptionCallback = onTranscription;
-    // Create AudioContext for playback
-    this.audioContext = new AudioContext({
-      sampleRate: 24000  // Match the response audio rate
-    });
+    this.audioContext = new AudioContext({ sampleRate: 24000 });
     this.transcriptionService = new TranscriptionService();
   }
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return;
-    }
+    if (this.ws?.readyState === WebSocket.OPEN) return;
     
     this.ws = new WebSocket(WS_URL);
 
@@ -67,7 +61,6 @@ export class GeminiWebSocket {
         } else {
           messageText = event.data;
         }
-        
         await this.handleMessage(messageText);
       } catch (error) {
         console.error("[WebSocket] Error processing message:", error);
@@ -80,8 +73,6 @@ export class GeminiWebSocket {
 
     this.ws.onclose = (event) => {
       this.isConnected = false;
-      
-      // Only attempt to reconnect if we haven't explicitly called disconnect
       if (!event.wasClean && this.isSetupComplete) {
         setTimeout(() => this.connect(), 1000);
       }
@@ -93,7 +84,17 @@ export class GeminiWebSocket {
       setup: {
         model: MODEL,
         generation_config: {
-          response_modalities: ["AUDIO"] 
+          response_modalities: ["AUDIO"]
+        },
+        system_instruction: {
+          parts: [
+            {
+              text: `1) You are a skill assessment AI, and a wise person for the user. When the user asks anything starting the conversation, greet them with 'Good morning' or 'Good afternoon', And be professional in the language you are using, reply in the language the user uses.
+              3) Ensure consistency by only talking in this format. Never exceed your responses to more than 40 words. Encourage the user to speak too, to maintain a conversation. 
+              4) You are to test the user on phychometric, technical skills, ethics and etc important parameters, test them about that in detail, dont tell the answer, Otherwise, you can talk and crack jokes with the user. 
+              5) And yes, do not repeat the user's question; just start answering.`
+            }
+          ]
         }
       }
     };
@@ -123,23 +124,18 @@ export class GeminiWebSocket {
     if (!this.audioContext) return;
 
     try {
-      // Decode base64 to bytes
       const binaryString = atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // Convert to Int16Array (PCM format)
       const pcmData = new Int16Array(bytes.buffer);
-      
-      // Convert to float32 for Web Audio API
       const float32Data = new Float32Array(pcmData.length);
       for (let i = 0; i < pcmData.length; i++) {
         float32Data[i] = pcmData[i] / 32768.0;
       }
 
-      // Add to queue and start playing if not already playing
       this.audioQueue.push(float32Data);
       this.playNextInQueue();
     } catch (error) {
@@ -156,7 +152,6 @@ export class GeminiWebSocket {
       this.onPlayingStateChange?.(true);
       const float32Data = this.audioQueue.shift()!;
 
-      // Calculate audio level
       let sum = 0;
       for (let i = 0; i < float32Data.length; i++) {
         sum += Math.abs(float32Data[i]);
@@ -174,7 +169,7 @@ export class GeminiWebSocket {
       this.currentSource = this.audioContext.createBufferSource();
       this.currentSource.buffer = audioBuffer;
       this.currentSource.connect(this.audioContext.destination);
-      
+
       this.currentSource.onended = () => {
         this.isPlaying = false;
         this.currentSource = null;
@@ -200,28 +195,25 @@ export class GeminiWebSocket {
     if (this.currentSource) {
       try {
         this.currentSource.stop();
-      } catch (e) {
-        // Ignore errors if already stopped
-      }
+      } catch (e) {}
       this.currentSource = null;
     }
     this.isPlaying = false;
     this.isPlayingResponse = false;
     this.onPlayingStateChange?.(false);
-    this.audioQueue = []; // Clear queue
+    this.audioQueue = [];
   }
 
   private async handleMessage(message: string) {
     try {
       const messageData = JSON.parse(message);
-      
+
       if (messageData.setupComplete) {
         this.isSetupComplete = true;
         this.onSetupCompleteCallback?.();
         return;
       }
 
-      // Handle audio data
       if (messageData.serverContent?.modelTurn?.parts) {
         const parts = messageData.serverContent.modelTurn.parts;
         for (const part of parts) {
@@ -232,13 +224,12 @@ export class GeminiWebSocket {
         }
       }
 
-      // Handle turn completion separately
       if (messageData.serverContent?.turnComplete === true) {
         if (this.accumulatedPcmData.length > 0) {
           try {
             const fullPcmData = this.accumulatedPcmData.join('');
             const wavData = await pcmToWav(fullPcmData, 24000);
-            
+
             const transcription = await this.transcriptionService.transcribeAudio(
               wavData,
               "audio/wav"
@@ -246,7 +237,7 @@ export class GeminiWebSocket {
             console.log("[Transcription]:", transcription);
 
             this.onTranscriptionCallback?.(transcription);
-            this.accumulatedPcmData = []; // Clear accumulated data
+            this.accumulatedPcmData = [];
           } catch (error) {
             console.error("[WebSocket] Transcription error:", error);
           }
@@ -266,4 +257,4 @@ export class GeminiWebSocket {
     this.isConnected = false;
     this.accumulatedPcmData = [];
   }
-} 
+}
