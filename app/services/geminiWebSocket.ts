@@ -2,7 +2,7 @@ import { Base64 } from 'js-base64';
 import { TranscriptionService } from './transcriptionService';
 import { pcmToWav } from '../utils/audioUtils';
 
-const MODEL = "models/gemini-2.0-flash-exp";
+const MODEL = "models/gemini-2.0-flash-live-001";
 const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const HOST = "generativelanguage.googleapis.com";
 const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${API_KEY}`;
